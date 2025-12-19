@@ -1,0 +1,364 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 10%;
+    --card: 0 0% 96%;
+    --card-foreground: 0 0% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+    --primary: 43 72% 52%;
+    --primary-foreground: 0 0% 5%;
+    --secondary: 30 56% 46%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 90%;
+    --muted-foreground: 0 0% 40%;
+    --accent: 43 72% 52%;
+    --accent-foreground: 0 0% 5%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 85%;
+    --input: 0 0% 85%;
+    --ring: 43 72% 52%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 0 0% 5%;
+    --foreground: 0 0% 96%;
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 96%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 96%;
+    --primary: 43 72% 52%;
+    --primary-foreground: 0 0% 5%;
+    --secondary: 30 56% 46%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 43 72% 52%;
+    --accent-foreground: 0 0% 5%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 43 72% 52%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-charcoal-dark text-cream font-body antialiased;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    background-blend-mode: overlay;
+    background-size: 150px;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading font-bold tracking-tight;
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-charcoal-dark;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gold/50 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gold;
+  }
+
+  /* Selection */
+  ::selection {
+    @apply bg-gold text-charcoal-dark;
+  }
+}
+
+@layer components {
+  /* Gold Line Divider */
+  .gold-divider {
+    @apply h-px bg-gradient-to-r from-transparent via-gold to-transparent;
+  }
+
+  /* Gold Border */
+  .gold-border {
+    @apply border border-gold/30 hover:border-gold/60 transition-colors;
+  }
+
+  /* Glass Effect */
+  .glass {
+    @apply bg-charcoal/80 backdrop-blur-md border border-white/10;
+  }
+
+  /* Glow Effect */
+  .gold-glow {
+    box-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
+  }
+
+  /* Text Gradient */
+  .text-gradient {
+    @apply bg-gradient-to-r from-gold to-copper bg-clip-text text-transparent;
+  }
+
+  /* Pattern Background */
+  .pattern-bg {
+    background-image: 
+      linear-gradient(30deg, #D4AF37 12%, transparent 12.5%, transparent 87%, #D4AF37 87.5%, #D4AF37),
+      linear-gradient(150deg, #D4AF37 12%, transparent 12.5%, transparent 87%, #D4AF37 87.5%, #D4AF37),
+      linear-gradient(30deg, #D4AF37 12%, transparent 12.5%, transparent 87%, #D4AF37 87.5%, #D4AF37),
+      linear-gradient(150deg, #D4AF37 12%, transparent 12.5%, transparent 87%, #D4AF37 87.5%, #D4AF37),
+      linear-gradient(60deg, #B8733377 25%, transparent 25.5%, transparent 75%, #B8733377 75%, #B8733377),
+      linear-gradient(60deg, #B8733377 25%, transparent 25.5%, transparent 75%, #B8733377 75%, #B8733377);
+    background-size: 20px 35px;
+    background-position: 0 0, 0 0, 10px 18px, 10px 18px, 0 0, 10px 18px;
+    opacity: 0.05;
+  }
+
+  /* Animated Button */
+  .btn-primary {
+    @apply relative overflow-hidden bg-gold text-charcoal-dark font-semibold px-6 py-3 rounded-md
+           transition-all duration-300 hover:shadow-lg hover:shadow-gold/30
+           active:scale-95;
+  }
+
+  .btn-primary::before {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent
+           -translate-x-full hover:translate-x-full transition-transform duration-700;
+  }
+
+  .btn-secondary {
+    @apply border-2 border-gold text-gold font-semibold px-6 py-3 rounded-md
+           transition-all duration-300 hover:bg-gold hover:text-charcoal-dark
+           active:scale-95;
+  }
+
+  .btn-ghost {
+    @apply text-cream/70 font-medium px-4 py-2 rounded-md
+           transition-all duration-300 hover:text-gold hover:bg-gold/10;
+  }
+
+  /* Card Styles */
+  .card-hover {
+    @apply transition-all duration-500 hover:-translate-y-2 hover:shadow-xl hover:shadow-gold/10;
+  }
+
+  /* Input Styles */
+  .input-style {
+    @apply w-full bg-charcoal border border-gold/30 rounded-md px-4 py-3 text-cream
+           placeholder:text-cream/40 focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold
+           transition-all duration-300;
+  }
+
+  /* Section Title */
+  .section-title {
+    @apply font-heading text-4xl md:text-5xl lg:text-6xl font-bold text-cream mb-4;
+  }
+
+  .section-subtitle {
+    @apply font-display text-gold text-lg tracking-[0.3em] uppercase mb-2;
+  }
+
+  /* Status Badges */
+  .badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium;
+  }
+
+  .badge-pending {
+    @apply bg-yellow-500/20 text-yellow-500 border border-yellow-500/30;
+  }
+
+  .badge-confirmed {
+    @apply bg-green-500/20 text-green-500 border border-green-500/30;
+  }
+
+  .badge-completed {
+    @apply bg-blue-500/20 text-blue-500 border border-blue-500/30;
+  }
+
+  .badge-cancelled {
+    @apply bg-red-500/20 text-red-500 border border-red-500/30;
+  }
+
+  /* Loading Skeleton */
+  .skeleton {
+    @apply bg-gradient-to-r from-charcoal via-charcoal-light to-charcoal bg-[length:200%_100%]
+           animate-shimmer rounded;
+  }
+
+  /* Overlay */
+  .overlay-dark {
+    @apply absolute inset-0 bg-gradient-to-t from-charcoal-dark via-charcoal-dark/80 to-transparent;
+  }
+}
+
+@layer utilities {
+  /* Animation Delays */
+  .animation-delay-100 { animation-delay: 100ms; }
+  .animation-delay-200 { animation-delay: 200ms; }
+  .animation-delay-300 { animation-delay: 300ms; }
+  .animation-delay-400 { animation-delay: 400ms; }
+  .animation-delay-500 { animation-delay: 500ms; }
+
+  /* Text Shadow */
+  .text-shadow {
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  }
+
+  .text-shadow-gold {
+    text-shadow: 0 0 20px rgba(212, 175, 55, 0.5);
+  }
+
+  /* Aspect Ratios */
+  .aspect-portrait { aspect-ratio: 3/4; }
+  .aspect-landscape { aspect-ratio: 4/3; }
+  .aspect-wide { aspect-ratio: 16/9; }
+
+  /* Hide Scrollbar */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Page Transitions */
+.page-enter {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 400ms ease-out, transform 400ms ease-out;
+}
+
+.page-exit {
+  opacity: 1;
+}
+
+.page-exit-active {
+  opacity: 0;
+  transition: opacity 200ms ease-in;
+}
+
+/* Framer Motion Classes */
+.motion-safe {
+  @media (prefers-reduced-motion: no-preference) {
+    animation: fade-in 0.6s ease-out;
+  }
+}
+
+/* React Day Picker Custom Styles */
+.rdp-outlook {
+  --rdp-cell-size: 40px;
+  --rdp-accent-color: #D4AF37;
+  --rdp-background-color: rgba(212, 175, 55, 0.2);
+  margin: 0;
+}
+
+.rdp-outlook .rdp-months {
+  justify-content: center;
+}
+
+.rdp-outlook .rdp-month {
+  background: transparent;
+}
+
+.rdp-outlook .rdp-caption {
+  padding: 0 0 1rem 0;
+}
+
+.rdp-outlook .rdp-caption_label {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #F5F5F0;
+}
+
+.rdp-outlook .rdp-nav_button {
+  color: #F5F5F0;
+  opacity: 0.5;
+  transition: all 0.2s;
+}
+
+.rdp-outlook .rdp-nav_button:hover {
+  opacity: 1;
+  color: #D4AF37;
+  background: rgba(212, 175, 55, 0.1);
+}
+
+.rdp-outlook .rdp-table {
+  width: 100%;
+}
+
+.rdp-outlook .rdp-head_cell {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgba(245, 245, 240, 0.5);
+  text-transform: uppercase;
+}
+
+.rdp-outlook .rdp-cell {
+  padding: 2px;
+}
+
+.rdp-outlook .rdp-day {
+  width: var(--rdp-cell-size);
+  height: var(--rdp-cell-size);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: #F5F5F0;
+  transition: all 0.2s;
+}
+
+.rdp-outlook .rdp-day:hover:not(.rdp-day_disabled):not(.rdp-day_selected) {
+  background: rgba(212, 175, 55, 0.2);
+  color: #D4AF37;
+}
+
+.rdp-outlook .rdp-day_today:not(.rdp-day_selected) {
+  background: rgba(212, 175, 55, 0.2);
+  color: #D4AF37;
+  font-weight: 600;
+}
+
+.rdp-outlook .rdp-day_selected {
+  background: #D4AF37 !important;
+  color: #0d0d0d !important;
+  font-weight: 600;
+}
+
+.rdp-outlook .rdp-day_selected:hover {
+  background: #c4a030 !important;
+}
+
+.rdp-outlook .rdp-day_disabled {
+  color: rgba(245, 245, 240, 0.2);
+  cursor: not-allowed;
+}
+
+.rdp-outlook .rdp-day_outside {
+  color: rgba(245, 245, 240, 0.2);
+}
