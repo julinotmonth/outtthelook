@@ -610,6 +610,60 @@ export const useHistoryStore = create((set, get) => ({
       return { success: false, message: error.response?.data?.message || error.message }
     }
   },
+
+  // Upload payment proof
+  uploadPaymentProof: async (id, paymentProof) => {
+    try {
+      const response = await api.post(`/bookings/${id}/payment-proof`, { 
+        payment_proof: paymentProof 
+      })
+      if (response.data.success) {
+        const { bookings } = get()
+        set({ 
+          bookings: bookings.map(b => 
+            b.id === id 
+              ? { ...b, payment_proof: paymentProof, payment_status: 'waiting_verification' } 
+              : b
+          ) 
+        })
+        return { success: true, data: response.data.data }
+      }
+      return { success: false, message: response.data.message }
+    } catch (error) {
+      return { success: false, message: error.response?.data?.message || error.message }
+    }
+  },
+
+  // Verify payment (admin)
+  verifyPayment: async (id, action) => {
+    console.log('Store: verifyPayment called', id, action)
+    try {
+      const response = await api.put(`/bookings/${id}/verify-payment`, { action })
+      console.log('Store: API response', response.data)
+      if (response.data.success) {
+        const { bookings } = get()
+        const newPaymentStatus = action === 'approve' ? 'paid' : 'rejected'
+        const newBookingStatus = action === 'approve' ? 'confirmed' : undefined
+        set({ 
+          bookings: bookings.map(b => 
+            b.id === id 
+              ? { 
+                  ...b, 
+                  payment_status: newPaymentStatus,
+                  payment_proof: action === 'reject' ? null : b.payment_proof,
+                  status: newBookingStatus || b.status
+                } 
+              : b
+          ) 
+        })
+        return { success: true, data: response.data.data }
+      }
+      return { success: false, message: response.data.message }
+    } catch (error) {
+      console.error('Store: verifyPayment error', error.response || error)
+      return { success: false, message: error.response?.data?.message || error.message }
+    }
+  },
 }))
 
 // ============================================

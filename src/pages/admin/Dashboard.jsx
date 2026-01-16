@@ -17,8 +17,6 @@ import {
   Loader2,
 } from 'lucide-react'
 import { 
-  LineChart, 
-  Line, 
   XAxis, 
   YAxis, 
   CartesianGrid, 
@@ -211,7 +209,7 @@ const Dashboard = () => {
 
       {/* Charts Row */}
       <div className="grid lg:grid-cols-2 gap-4 sm:gap-6">
-        {/* Booking Trend Chart */}
+        {/* Popular Services Chart */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -219,34 +217,63 @@ const Dashboard = () => {
         >
           <Card>
             <CardHeader className="flex flex-row items-center justify-between p-4 sm:p-6">
-              <CardTitle className="text-sm sm:text-lg">Tren Booking 7 Hari</CardTitle>
+              <CardTitle className="text-sm sm:text-lg">Layanan Terpopuler</CardTitle>
               <button className="p-2 text-cream/50 hover:text-gold transition-colors">
                 <MoreHorizontal className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             </CardHeader>
             <CardContent className="p-2 sm:p-6 pt-0">
-              <ResponsiveContainer width="100%" height={200} className="sm:!h-[300px]">
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                  <XAxis dataKey="name" stroke="#888" fontSize={10} />
-                  <YAxis stroke="#888" fontSize={10} width={30} />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#1a1a1a', 
-                      border: '1px solid #D4AF37',
-                      borderRadius: '8px',
-                      fontSize: '12px'
-                    }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="bookings" 
-                    stroke="#D4AF37" 
-                    strokeWidth={2}
-                    dot={{ fill: '#D4AF37', r: 3 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              {topServices.length === 0 ? (
+                <div className="h-[200px] sm:h-[300px] flex flex-col items-center justify-center">
+                  <TrendingUp className="w-12 h-12 text-cream/20 mb-3" />
+                  <p className="text-cream/50 text-sm">Belum ada data layanan</p>
+                  <p className="text-cream/30 text-xs">Data akan muncul setelah ada booking</p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={200} className="sm:!h-[300px]">
+                  <BarChart 
+                    data={topServices} 
+                    layout="vertical"
+                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#333" horizontal={true} vertical={false} />
+                    <XAxis 
+                      type="number" 
+                      stroke="#888" 
+                      fontSize={10} 
+                      tickFormatter={(value) => value}
+                      axisLine={false}
+                    />
+                    <YAxis 
+                      type="category" 
+                      dataKey="name" 
+                      stroke="#888" 
+                      fontSize={10} 
+                      width={100}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: '#1a1a1a', 
+                        border: '1px solid #D4AF37',
+                        borderRadius: '8px',
+                        fontSize: '12px'
+                      }}
+                      formatter={(value, name) => {
+                        if (name === 'bookings') return [value, 'Total Booking']
+                        return [formatCurrency(value), 'Pendapatan']
+                      }}
+                    />
+                    <Bar 
+                      dataKey="bookings" 
+                      fill="#D4AF37" 
+                      radius={[0, 4, 4, 0]}
+                      barSize={20}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
         </motion.div>

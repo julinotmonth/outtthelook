@@ -682,8 +682,19 @@ const StepBarber = ({ barbers, selectedBarber, setSelectedBarber }) => {
 }
 
 // Step 3: Schedule Selection
-const StepSchedule = ({ selectedDate, setSelectedDate, selectedTime, setSelectedTime, selectedBarber, existingBookings }) => {
+const StepSchedule = ({ selectedDate, setSelectedDate, selectedTime, setSelectedTime, selectedBarber, existingBookings, totalDuration }) => {
   const disabledDays = { before: startOfDay(new Date()) }
+
+  // Minimum buffer time in minutes (waktu minimum sebelum booking)
+  const MINIMUM_BUFFER_MINUTES = 30
+
+  // Get barber's end time or default closing time
+  const getClosingTime = () => {
+    if (selectedBarber?.workSchedule?.endTime) {
+      return selectedBarber.workSchedule.endTime
+    }
+    return '20:00' // default closing time
+  }
 
   // Filter time slots based on barber's work schedule
   const getAvailableTimeSlots = () => {
@@ -711,7 +722,7 @@ const StepSchedule = ({ selectedDate, setSelectedDate, selectedTime, setSelected
     })
   }
 
-  // Check if time slot is in the past (for today only)
+  // Check if time slot is in the past or doesn't have enough buffer time (for today only)
   const isTimePassed = (time) => {
     if (!selectedDate) return false
     
@@ -726,7 +737,35 @@ const StepSchedule = ({ selectedDate, setSelectedDate, selectedTime, setSelected
     const slotTime = new Date()
     slotTime.setHours(hours, minutes, 0, 0)
     
-    return slotTime <= now
+    // Add buffer time - slot harus minimal MINIMUM_BUFFER_MINUTES menit dari sekarang
+    const minimumBookingTime = new Date(now.getTime() + MINIMUM_BUFFER_MINUTES * 60 * 1000)
+    
+    return slotTime <= minimumBookingTime
+  }
+
+  // Check if service can be completed before closing time
+  const isServiceTooLate = (time) => {
+    if (!totalDuration) return false
+    
+    const closingTime = getClosingTime()
+    const [slotHours, slotMinutes] = time.split(':').map(Number)
+    const [closeHours, closeMinutes] = closingTime.split(':').map(Number)
+    
+    // Calculate end time if booking starts at this slot
+    const slotStartMinutes = slotHours * 60 + slotMinutes
+    const slotEndMinutes = slotStartMinutes + totalDuration
+    const closingMinutes = closeHours * 60 + closeMinutes
+    
+    // If service would end after closing time, disable this slot
+    return slotEndMinutes > closingMinutes
+  }
+
+  // Get reason why slot is unavailable
+  const getSlotUnavailableReason = (time) => {
+    if (isTimeBooked(time)) return 'Sudah dibooking'
+    if (isTimePassed(time)) return `Minimal ${MINIMUM_BUFFER_MINUTES} menit sebelum booking`
+    if (isServiceTooLate(time)) return `Layanan ${totalDuration} menit tidak cukup waktu sebelum tutup`
+    return 'Tersedia'
   }
 
   const availableTimeSlots = getAvailableTimeSlots()
@@ -734,11 +773,11 @@ const StepSchedule = ({ selectedDate, setSelectedDate, selectedTime, setSelected
   // Reset selected time when date changes and the time is no longer available
   React.useEffect(() => {
     if (selectedTime && selectedDate) {
-      if (isTimePassed(selectedTime) || isTimeBooked(selectedTime)) {
+      if (isTimePassed(selectedTime) || isTimeBooked(selectedTime) || isServiceTooLate(selectedTime)) {
         setSelectedTime(null)
       }
     }
-  }, [selectedDate])
+  }, [selectedDate, totalDuration])
 
   return (
     <motion.div
@@ -826,8 +865,15 @@ const StepSchedule = ({ selectedDate, setSelectedDate, selectedTime, setSelected
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 rounded bg-cream/10 border border-cream/20"></div>
-                  <span className="text-cream/60">Sudah lewat</span>
+                  <span className="text-cream/60">Tidak tersedia</span>
                 </div>
+              </div>
+
+              {/* Buffer time info */}
+              <div className="mb-4 p-2 rounded bg-blue-500/10 border border-blue-500/30">
+                <p className="text-blue-400 text-xs">
+                  ℹ️ Booking minimal {MINIMUM_BUFFER_MINUTES} menit sebelum waktu layanan
+                </p>
               </div>
 
               <div className="grid grid-cols-3 gap-2">
@@ -835,7 +881,9 @@ const StepSchedule = ({ selectedDate, setSelectedDate, selectedTime, setSelected
                   const isSelected = selectedTime === time
                   const isBooked = isTimeBooked(time)
                   const isPassed = isTimePassed(time)
-                  const isUnavailable = isBooked || isPassed
+                  const isTooLate = isServiceTooLate(time)
+                  const isUnavailable = isBooked || isPassed || isTooLate
+                  const tooltipText = getSlotUnavailableReason(time)
                   
                   return (
                     <button
@@ -848,16 +896,21 @@ const StepSchedule = ({ selectedDate, setSelectedDate, selectedTime, setSelected
                           ? 'border-gold bg-gold text-charcoal-dark'
                           : isBooked
                           ? 'border-red-500/30 bg-red-500/10 text-red-400 cursor-not-allowed'
-                          : isPassed
+                          : isPassed || isTooLate
                           ? 'border-cream/10 bg-cream/5 text-cream/30 cursor-not-allowed line-through'
                           : 'border-gold/20 text-cream hover:border-gold/50'
                       )}
-                      title={isBooked ? 'Sudah dibooking' : isPassed ? 'Waktu sudah lewat' : 'Tersedia'}
+                      title={tooltipText}
                     >
                       {time}
                       {isBooked && (
                         <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
                           <X className="w-3 h-3 text-white" />
+                        </span>
+                      )}
+                      {isTooLate && !isBooked && !isPassed && (
+                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center">
+                          <Clock className="w-3 h-3 text-white" />
                         </span>
                       )}
                     </button>

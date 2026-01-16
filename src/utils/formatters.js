@@ -3,6 +3,11 @@ import { id } from 'date-fns/locale'
 
 // Format currency to Indonesian Rupiah
 export const formatCurrency = (amount) => {
+  // Handle undefined, null, NaN, or invalid values
+  if (amount === undefined || amount === null || isNaN(amount)) {
+    amount = 0
+  }
+  
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
@@ -60,11 +65,18 @@ export const formatPhoneNumber = (phone) => {
 
 // Format duration in minutes to human readable
 export const formatDuration = (minutes) => {
-  if (minutes < 60) {
-    return `${minutes} menit`
+  // Handle undefined, null, NaN, or invalid values
+  if (minutes === undefined || minutes === null || isNaN(minutes) || minutes <= 0) {
+    return '0 menit'
   }
-  const hours = Math.floor(minutes / 60)
-  const remainingMinutes = minutes % 60
+  
+  const mins = parseInt(minutes, 10)
+  
+  if (mins < 60) {
+    return `${mins} menit`
+  }
+  const hours = Math.floor(mins / 60)
+  const remainingMinutes = mins % 60
   if (remainingMinutes === 0) {
     return `${hours} jam`
   }

@@ -50,6 +50,26 @@ export const bookingService = {
     const response = await api.get('/bookings/stats')
     return response.data
   },
+
+  // Upload payment proof
+  uploadPaymentProof: async (id, paymentProof) => {
+    const response = await api.post(`/bookings/${id}/payment-proof`, { 
+      payment_proof: paymentProof 
+    })
+    return response.data
+  },
+
+  // Verify payment (admin)
+  verifyPayment: async (id, action) => {
+    const response = await api.put(`/bookings/${id}/verify-payment`, { action })
+    return response.data
+  },
+
+  // Get payment pending bookings (admin)
+  getPaymentPending: async () => {
+    const response = await api.get('/bookings/payment-pending')
+    return response.data
+  },
 }
 
 export default bookingService

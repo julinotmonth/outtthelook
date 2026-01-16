@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { format } from 'date-fns'
@@ -20,6 +20,9 @@ import {
   Plus,
   Star,
   MessageSquare,
+  Upload,
+  Image,
+  CreditCard,
 } from 'lucide-react'
 import Button from '../../components/common/Button'
 import { Card, CardContent } from '../../components/common/Card'
@@ -31,6 +34,26 @@ import { formatCurrency, formatDuration, formatBookingId } from '../../utils/for
 import { useHistoryStore, useReviewStore, useNotificationStore } from '../../store/useStore'
 import { cn } from '../../lib/utils'
 
+// Payment status labels and colors
+const PAYMENT_STATUS = {
+  pending: { label: 'Belum Bayar', color: 'bg-yellow-500/20 text-yellow-500', icon: AlertCircle },
+  waiting_verification: { label: 'Menunggu Verifikasi', color: 'bg-blue-500/20 text-blue-500', icon: Clock },
+  paid: { label: 'Lunas', color: 'bg-green-500/20 text-green-500', icon: CheckCircle },
+  rejected: { label: 'Ditolak', color: 'bg-red-500/20 text-red-500', icon: XCircle },
+}
+
+// Payment Status Badge Component
+const PaymentStatusBadge = ({ status }) => {
+  const config = PAYMENT_STATUS[status] || PAYMENT_STATUS.pending
+  const Icon = config.icon
+  return (
+    <span className={cn('inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium', config.color)}>
+      <Icon className="w-3 h-3" />
+      {config.label}
+    </span>
+  )
+}
+
 const STATUS_FILTERS = [
   { id: 'all', label: 'Semua' },
   { id: 'pending', label: 'Menunggu' },
@@ -40,7 +63,7 @@ const STATUS_FILTERS = [
 ]
 
 const History = () => {
-  const { bookings, loading, fetchBookings, updateBookingStatus, cancelBooking } = useHistoryStore()
+  const { bookings, loading, fetchBookings, updateBookingStatus, cancelBooking, uploadPaymentProof } = useHistoryStore()
   const { addReview } = useReviewStore()
   const { addNotification } = useNotificationStore()
   const [statusFilter, setStatusFilter] = useState('all')
@@ -51,6 +74,8 @@ const History = () => {
   const [isCancelling, setIsCancelling] = useState(false)
   const [showReviewModal, setShowReviewModal] = useState(false)
   const [bookingToReview, setBookingToReview] = useState(null)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [bookingToUpload, setBookingToUpload] = useState(null)
 
   // Fetch bookings on mount
   useEffect(() => {
@@ -104,6 +129,32 @@ const History = () => {
   const openReviewModal = (booking) => {
     setBookingToReview(booking)
     setShowReviewModal(true)
+  }
+
+  // Open payment upload modal
+  const openPaymentModal = (booking) => {
+    setBookingToUpload(booking)
+    setShowPaymentModal(true)
+  }
+
+  // Handle upload payment proof
+  const handleUploadPayment = async (imageUrl) => {
+    if (!bookingToUpload) return
+    
+    try {
+      const result = await uploadPaymentProof(bookingToUpload.id, imageUrl)
+      
+      if (result.success) {
+        toast.success('Bukti pembayaran berhasil diupload! Menunggu verifikasi admin.')
+        setShowPaymentModal(false)
+        setBookingToUpload(null)
+        fetchBookings() // Refresh data
+      } else {
+        toast.error(result.message || 'Gagal mengupload bukti pembayaran')
+      }
+    } catch (error) {
+      toast.error('Gagal mengupload bukti pembayaran')
+    }
   }
 
   // Handle submit review
@@ -241,6 +292,7 @@ const History = () => {
                 onViewDetails={() => setSelectedBooking(booking)}
                 onCancel={() => openCancelModal(booking)}
                 onReview={() => openReviewModal(booking)}
+                onUploadPayment={() => openPaymentModal(booking)}
                 hasReview={hasReviewForBooking(booking.id)}
               />
             ))}
@@ -330,14 +382,35 @@ const History = () => {
           onSubmit={handleSubmitReview}
         />
       )}
+
+      {/* Payment Upload Modal */}
+      {showPaymentModal && bookingToUpload && (
+        <PaymentUploadModal
+          booking={bookingToUpload}
+          onClose={() => {
+            setShowPaymentModal(false)
+            setBookingToUpload(null)
+          }}
+          onSubmit={handleUploadPayment}
+        />
+      )}
     </div>
   )
 }
 
 // Booking Card Component
-const BookingCard = ({ booking, index, onViewDetails, onCancel, onReview, hasReview }) => {
+const BookingCard = ({ booking, index, onViewDetails, onCancel, onReview, onUploadPayment, hasReview }) => {
   const canCancel = booking.status === 'pending' || booking.status === 'confirmed'
   const canReview = booking.status === 'completed' && !hasReview
+  const paymentStatus = booking.payment_status || 'pending'
+  const paymentMethod = booking.paymentMethod || booking.payment_method
+  
+  // Can upload payment if: not cash, not paid, not cancelled, and no proof yet or rejected
+  const canUploadPayment = 
+    paymentMethod !== 'cash' && 
+    booking.status !== 'cancelled' &&
+    (paymentStatus === 'pending' || paymentStatus === 'rejected') &&
+    !booking.payment_proof
 
   // Normalize date fields - handle both API format and local format
   const createdAt = booking.createdAt || booking.created_at
@@ -347,7 +420,6 @@ const BookingCard = ({ booking, index, onViewDetails, onCancel, onReview, hasRev
   const barberImage = booking.barber?.image || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100'
   const barberName = booking.barber?.name || 'Barber'
   const services = booking.services || []
-  const paymentMethod = booking.paymentMethod || booking.payment_method
 
   // Safe date formatting
   const formatSafeDate = (dateStr, formatStr) => {
@@ -381,7 +453,10 @@ const BookingCard = ({ booking, index, onViewDetails, onCancel, onReview, hasRev
                     Dibuat {formatSafeDate(createdAt, 'dd MMM yyyy, HH:mm')}
                   </p>
                 </div>
-                <StatusBadge status={booking.status} />
+                <div className="flex flex-col items-end gap-1">
+                  <StatusBadge status={booking.status} />
+                  {paymentMethod !== 'cash' && <PaymentStatusBadge status={paymentStatus} />}
+                </div>
               </div>
 
               {/* Services */}
@@ -438,7 +513,7 @@ const BookingCard = ({ booking, index, onViewDetails, onCancel, onReview, hasRev
             </div>
 
             {/* Right Section - Price & Actions */}
-            <div className="md:w-48 p-6 bg-charcoal-dark/50 flex flex-col justify-between border-t md:border-t-0 md:border-l border-gold/10">
+            <div className="md:w-52 p-6 bg-charcoal-dark/50 flex flex-col justify-between border-t md:border-t-0 md:border-l border-gold/10">
               <div className="text-center md:text-right mb-4">
                 <p className="text-cream/50 text-xs mb-1">Total</p>
                 <p className="font-display text-2xl text-gold">
@@ -454,6 +529,12 @@ const BookingCard = ({ booking, index, onViewDetails, onCancel, onReview, hasRev
                   <Eye className="w-4 h-4 mr-1" />
                   Detail
                 </Button>
+                {canUploadPayment && (
+                  <Button size="sm" onClick={onUploadPayment}>
+                    <Upload className="w-4 h-4 mr-1" />
+                    Upload Bukti
+                  </Button>
+                )}
                 {canReview && (
                   <Button
                     size="sm"
@@ -857,6 +938,236 @@ const ReviewModal = ({ booking, onClose, onSubmit }) => {
             >
               <MessageSquare className="w-4 h-4 mr-1" />
               Kirim
+            </Button>
+          </div>
+        </form>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// Payment Upload Modal Component
+const PaymentUploadModal = ({ booking, onClose, onSubmit }) => {
+  const [imageUrl, setImageUrl] = useState('')
+  const [previewUrl, setPreviewUrl] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [uploadMethod, setUploadMethod] = useState('url') // 'url' or 'file'
+  const fileInputRef = useRef(null)
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      // Check file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Ukuran file maksimal 5MB')
+        return
+      }
+
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        toast.error('File harus berupa gambar')
+        return
+      }
+
+      // Create preview URL
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setPreviewUrl(e.target.result)
+        setImageUrl(e.target.result) // Use base64 as the image URL
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const handleUrlChange = (e) => {
+    const url = e.target.value
+    setImageUrl(url)
+    setPreviewUrl(url)
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+
+    if (!imageUrl.trim()) {
+      toast.error('Masukkan bukti pembayaran')
+      return
+    }
+
+    setIsSubmitting(true)
+    await onSubmit(imageUrl)
+    setIsSubmitting(false)
+  }
+
+  const totalPrice = booking.totalPrice || booking.total_price || 0
+  const paymentMethod = booking.paymentMethod?.name || booking.payment_method || 'Transfer'
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div className="absolute inset-0 bg-charcoal-dark/95 backdrop-blur-md" />
+
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        className="relative w-full max-w-md bg-charcoal border border-gold/20 rounded-lg overflow-hidden z-10 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="p-4 border-b border-gold/20">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Upload className="w-5 h-5 text-gold" />
+              <h2 className="font-heading text-lg font-bold text-cream">
+                Upload Bukti Pembayaran
+              </h2>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-1 text-cream/50 hover:text-gold transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+          {/* Booking Info */}
+          <div className="p-3 bg-charcoal-dark rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-gold font-mono text-sm">{formatBookingId(booking.id)}</span>
+              <span className="text-cream/60 text-sm">{paymentMethod}</span>
+            </div>
+            <p className="text-gold font-display text-xl">{formatCurrency(totalPrice)}</p>
+          </div>
+
+          {/* Upload Method Toggle */}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setUploadMethod('file')}
+              className={cn(
+                'flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors',
+                uploadMethod === 'file'
+                  ? 'bg-gold text-charcoal-dark'
+                  : 'bg-charcoal-dark text-cream/70 hover:text-gold'
+              )}
+            >
+              <Image className="w-4 h-4 inline mr-2" />
+              Upload File
+            </button>
+            <button
+              type="button"
+              onClick={() => setUploadMethod('url')}
+              className={cn(
+                'flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors',
+                uploadMethod === 'url'
+                  ? 'bg-gold text-charcoal-dark'
+                  : 'bg-charcoal-dark text-cream/70 hover:text-gold'
+              )}
+            >
+              Link URL
+            </button>
+          </div>
+
+          {/* File Upload */}
+          {uploadMethod === 'file' && (
+            <div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full p-6 border-2 border-dashed border-gold/30 rounded-lg hover:border-gold transition-colors text-center"
+              >
+                <Upload className="w-8 h-8 text-gold/50 mx-auto mb-2" />
+                <p className="text-cream/70 text-sm">Klik untuk upload gambar</p>
+                <p className="text-cream/50 text-xs mt-1">JPG, PNG, maks. 5MB</p>
+              </button>
+            </div>
+          )}
+
+          {/* URL Input */}
+          {uploadMethod === 'url' && (
+            <FormField label="URL Gambar" required>
+              <Input
+                type="url"
+                value={uploadMethod === 'url' ? imageUrl : ''}
+                onChange={handleUrlChange}
+                placeholder="https://example.com/bukti-transfer.jpg"
+                className="text-sm"
+              />
+            </FormField>
+          )}
+
+          {/* Preview */}
+          {previewUrl && (
+            <div>
+              <p className="text-cream/60 text-xs mb-2">Preview:</p>
+              <div className="relative">
+                <img
+                  src={previewUrl}
+                  alt="Preview"
+                  className="w-full max-h-48 object-contain rounded-lg border border-gold/30"
+                  onError={() => {
+                    setPreviewUrl('')
+                    toast.error('URL gambar tidak valid')
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPreviewUrl('')
+                    setImageUrl('')
+                  }}
+                  className="absolute top-2 right-2 p-1 bg-red-500 rounded-full text-white hover:bg-red-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Info */}
+          <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+            <p className="text-blue-400 text-xs">
+              <AlertCircle className="w-4 h-4 inline mr-1" />
+              Pastikan bukti pembayaran terlihat jelas (nama pengirim, nominal, tanggal transfer)
+            </p>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2 pt-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="flex-1"
+            >
+              Batal
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              isLoading={isSubmitting}
+              disabled={!imageUrl}
+              className="flex-1"
+            >
+              <Upload className="w-4 h-4 mr-1" />
+              Upload
             </Button>
           </div>
         </form>

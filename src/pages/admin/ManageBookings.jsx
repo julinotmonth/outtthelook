@@ -21,6 +21,11 @@ import {
   Phone,
   Mail,
   Loader2,
+  Image,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  CreditCard,
 } from 'lucide-react'
 import { Card, CardContent } from '../../components/common/Card'
 import Button from '../../components/common/Button'
@@ -30,6 +35,26 @@ import { StatusBadge } from '../../components/common/Badge'
 import { formatCurrency, formatDuration, formatBookingId } from '../../utils/formatters'
 import { useHistoryStore } from '../../store/useStore'
 import { cn } from '../../lib/utils'
+
+// Payment status labels and colors
+const PAYMENT_STATUS = {
+  pending: { label: 'Belum Bayar', color: 'bg-yellow-500/20 text-yellow-500', icon: AlertCircle },
+  waiting_verification: { label: 'Menunggu Verifikasi', color: 'bg-blue-500/20 text-blue-500', icon: Clock },
+  paid: { label: 'Lunas', color: 'bg-green-500/20 text-green-500', icon: CheckCircle },
+  rejected: { label: 'Ditolak', color: 'bg-red-500/20 text-red-500', icon: XCircle },
+}
+
+// Payment Status Badge Component
+const PaymentStatusBadge = ({ status }) => {
+  const config = PAYMENT_STATUS[status] || PAYMENT_STATUS.pending
+  const Icon = config.icon
+  return (
+    <span className={cn('inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium', config.color)}>
+      <Icon className="w-3 h-3" />
+      {config.label}
+    </span>
+  )
+}
 
 // Safe date formatting helper
 const formatSafeDate = (dateStr, formatStr) => {
@@ -52,12 +77,13 @@ const STATUS_FILTERS = [
 ]
 
 const ManageBookings = () => {
-  const { bookings, loading, fetchAllBookings, updateBookingStatus } = useHistoryStore()
+  const { bookings, loading, fetchAllBookings, updateBookingStatus, verifyPayment } = useHistoryStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [dateFilter, setDateFilter] = useState('')
   const [selectedBooking, setSelectedBooking] = useState(null)
   const [actionModal, setActionModal] = useState({ isOpen: false, type: '', booking: null })
+  const [paymentModal, setPaymentModal] = useState({ isOpen: false, booking: null })
   const [isProcessing, setIsProcessing] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
 
@@ -156,6 +182,35 @@ const ManageBookings = () => {
     } finally {
       setIsProcessing(false)
     }
+  }
+
+  // Handle payment verification
+  const handleVerifyPayment = async (bookingId, action) => {
+    setIsProcessing(true)
+    console.log('Verifying payment:', bookingId, action)
+
+    try {
+      const result = await verifyPayment(bookingId, action)
+      console.log('Verify result:', result)
+      
+      if (result && result.success) {
+        toast.success(action === 'approve' ? 'Pembayaran berhasil diverifikasi' : 'Pembayaran ditolak')
+        await fetchAllBookings() // Refresh data
+      } else {
+        toast.error(result?.message || 'Terjadi kesalahan saat verifikasi')
+        console.error('Verify failed:', result)
+      }
+    } catch (error) {
+      console.error('Verify payment error:', error)
+      toast.error('Terjadi kesalahan: ' + (error.message || 'Unknown error'))
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  // Get payment pending count
+  const getPaymentPendingCount = () => {
+    return bookings.filter(b => b.payment_status === 'waiting_verification').length
   }
 
   // Get status counts
@@ -637,18 +692,86 @@ const ManageBookings = () => {
               </div>
             </div>
 
-            {/* Payment Method */}
-            {(selectedBooking.paymentMethod || selectedBooking.payment_method) && (
-              <div>
-                <h3 className="text-gold text-xs font-medium mb-2 flex items-center gap-2">
-                  <Wallet className="w-4 h-4" />
-                  Metode Pembayaran
-                </h3>
-                <div className="bg-charcoal-dark rounded-lg p-3">
-                  <p className="text-cream text-sm">{selectedBooking.paymentMethod?.name || selectedBooking.payment_method || '-'}</p>
+            {/* Payment Method & Status */}
+            <div>
+              <h3 className="text-gold text-xs font-medium mb-2 flex items-center gap-2">
+                <Wallet className="w-4 h-4" />
+                Pembayaran
+              </h3>
+              <div className="bg-charcoal-dark rounded-lg p-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-cream/60 text-sm">Metode</span>
+                  <span className="text-cream text-sm">{selectedBooking.paymentMethod?.name || selectedBooking.payment_method || '-'}</span>
                 </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-cream/60 text-sm">Status</span>
+                  <PaymentStatusBadge status={selectedBooking.payment_status || 'pending'} />
+                </div>
+                
+                {/* Payment Proof */}
+                {selectedBooking.payment_proof && (
+                  <div className="pt-2 border-t border-gold/20">
+                    <p className="text-cream/60 text-xs mb-2">Bukti Pembayaran:</p>
+                    <div className="relative group">
+                      <img
+                        src={selectedBooking.payment_proof}
+                        alt="Bukti Pembayaran"
+                        className="w-full rounded-lg border border-gold/30 cursor-pointer hover:border-gold transition-colors"
+                        onClick={() => window.open(selectedBooking.payment_proof, '_blank')}
+                      />
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                        <Eye className="w-6 h-6 text-white" />
+                      </div>
+                    </div>
+                    
+                    {/* Verification Buttons */}
+                    {selectedBooking.payment_status === 'waiting_verification' && (
+                      <div className="flex gap-2 mt-3">
+                        <Button
+                          size="sm"
+                          className="flex-1 bg-green-600 hover:bg-green-700"
+                          isLoading={isProcessing}
+                          onClick={async () => {
+                            if (window.confirm('Verifikasi pembayaran ini? Booking akan otomatis dikonfirmasi.')) {
+                              await handleVerifyPayment(selectedBooking.id, 'approve')
+                              setSelectedBooking(null)
+                            }
+                          }}
+                        >
+                          <CheckCircle className="w-4 h-4 mr-1" />
+                          Verifikasi
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="flex-1 text-red-400 hover:bg-red-500/10 border border-red-500/30"
+                          isLoading={isProcessing}
+                          onClick={async () => {
+                            if (window.confirm('Tolak bukti pembayaran ini? User harus upload ulang.')) {
+                              await handleVerifyPayment(selectedBooking.id, 'reject')
+                              setSelectedBooking(null)
+                            }
+                          }}
+                        >
+                          <XCircle className="w-4 h-4 mr-1" />
+                          Tolak
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* No payment proof yet */}
+                {!selectedBooking.payment_proof && selectedBooking.payment_method !== 'cash' && selectedBooking.payment_status !== 'paid' && (
+                  <div className="pt-2 border-t border-gold/20">
+                    <div className="flex items-center gap-2 text-cream/50 text-xs">
+                      <AlertCircle className="w-4 h-4" />
+                      <span>Belum ada bukti pembayaran</span>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
 
             {/* Services */}
             <div>
@@ -709,12 +832,12 @@ const ManageBookings = () => {
               <div>
                 <p className="text-cream/60 text-xs">Total Pembayaran</p>
                 <p className="font-display text-2xl text-gold">
-                  {formatCurrency(selectedBooking.totalPrice)}
+                  {formatCurrency(selectedBooking.totalPrice || selectedBooking.total_price || 0)}
                 </p>
               </div>
               <div className="text-right">
                 <p className="text-cream/60 text-xs">Durasi</p>
-                <p className="text-cream font-medium">{formatDuration(selectedBooking.totalDuration)}</p>
+                <p className="text-cream font-medium">{formatDuration(selectedBooking.totalDuration || selectedBooking.total_duration || 0)}</p>
               </div>
             </div>
 
@@ -820,6 +943,69 @@ const ManageBookings = () => {
             {actionModal.type === 'confirm' && 'Konfirmasi'}
             {actionModal.type === 'complete' && 'Selesaikan'}
             {actionModal.type === 'cancel' && 'Batalkan'}
+          </Button>
+        </DialogFooter>
+      </Modal>
+
+      {/* Payment Verification Modal */}
+      <Modal
+        isOpen={paymentModal.isOpen}
+        onClose={() => setPaymentModal({ isOpen: false, booking: null, action: null })}
+        title={paymentModal.action === 'approve' ? 'Verifikasi Pembayaran' : 'Tolak Pembayaran'}
+      >
+        <div className="py-4">
+          <p className="text-cream/70 text-sm">
+            {paymentModal.action === 'approve' 
+              ? 'Apakah Anda yakin ingin memverifikasi pembayaran ini? Booking akan otomatis dikonfirmasi.'
+              : 'Apakah Anda yakin ingin menolak bukti pembayaran ini? Pelanggan perlu mengupload ulang bukti pembayaran.'}
+          </p>
+          
+          {paymentModal.booking && (
+            <div className="mt-4 space-y-3">
+              {/* Booking Info */}
+              <div className="p-3 bg-charcoal-dark rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-gold font-mono text-sm">{formatBookingId(paymentModal.booking.id)}</span>
+                  <PaymentStatusBadge status={paymentModal.booking.payment_status} />
+                </div>
+                <p className="text-cream font-medium">{paymentModal.booking.customer?.name || paymentModal.booking.customer_name || '-'}</p>
+                <p className="text-gold font-display mt-2">{formatCurrency(paymentModal.booking.totalPrice || paymentModal.booking.total_price || 0)}</p>
+              </div>
+              
+              {/* Payment Proof Preview */}
+              {paymentModal.booking.payment_proof && (
+                <div>
+                  <p className="text-cream/60 text-xs mb-2">Bukti Pembayaran:</p>
+                  <img
+                    src={paymentModal.booking.payment_proof}
+                    alt="Bukti Pembayaran"
+                    className="w-full max-h-64 object-contain rounded-lg border border-gold/30 cursor-pointer"
+                    onClick={() => window.open(paymentModal.booking.payment_proof, '_blank')}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        <DialogFooter className="gap-2">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setPaymentModal({ isOpen: false, booking: null, action: null })}
+            disabled={isProcessing}
+          >
+            Batal
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => handleVerifyPayment(paymentModal.booking.id, paymentModal.action)}
+            isLoading={isProcessing}
+            className={cn(
+              paymentModal.action === 'approve' && 'bg-green-600 hover:bg-green-700',
+              paymentModal.action === 'reject' && 'bg-red-500 hover:bg-red-600'
+            )}
+          >
+            {paymentModal.action === 'approve' ? 'Verifikasi Pembayaran' : 'Tolak Pembayaran'}
           </Button>
         </DialogFooter>
       </Modal>
