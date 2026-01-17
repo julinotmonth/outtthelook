@@ -79,7 +79,7 @@ export const SOCIAL_LINKS = [
 
 // Contact Info
 export const CONTACT_INFO = {
-  phone: '+62 812 3456 7890',
+  phone: '+62 812 3258 9599',
   email: 'hello@outlookbarbershop.com',
   address: 'Jl. Sudirman No. 123, Jakarta Pusat, Indonesia',
   operationalHours: 'Senin - Minggu: 09:00 - 21:00',
