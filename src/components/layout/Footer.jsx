@@ -152,7 +152,7 @@ const Footer = () => {
       <div className="container mx-auto px-4 py-6">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-cream/40 text-sm text-center md:text-left">
-            © {new Date().getFullYear()} Outlook Barbershop. All rights reserved.
+            © {new Date().getFullYear()} Akhmad Jazuli Al Faris Universitas Muhammadiyah Sidoarjo. All rights reserved.
           </p>
           
           <div className="flex items-center gap-6">
